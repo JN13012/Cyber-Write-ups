@@ -16,7 +16,7 @@ tags:
   - path-hijacking
   - sudo
 ---
-# 1. Reconnaissance initiale
+# 1. Reconnaissance
 
 ## Scan Nmap
 
