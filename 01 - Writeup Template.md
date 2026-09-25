@@ -1,17 +1,8 @@
 ---
-
-type: writeup  
-platform:  
-room:  
-os:  
-environment:  
-status: completed  
-last_verified:
-
-## techniques:
-
-## tools:
-
+category:
+  - writeup
+platform: THM
+last_verified: 2026-09-25
 ---
 
 # Room - Main Focus - Main Technique 1 - Main Technique 2

@@ -1,4 +1,8 @@
-
+---
+category: writeup
+platform: THM
+last_verified: 2026-09-25
+---
 ## 1. Purpose
 
 This document defines the standard used for penetration-testing and CTF write-ups in this repository.
