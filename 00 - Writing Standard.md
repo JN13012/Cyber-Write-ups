@@ -1,10 +1,7 @@
 ---
 category: writeup
 platform: THM + Exegol
-last_verified: 2026-09-25
 ---
-# Cyber Write-up Writing Standard
-
 ## Purpose
 
 Write-ups in this repository document authorized labs, CTFs and penetration-testing exercises.
@@ -12,9 +9,7 @@ Write-ups in this repository document authorized labs, CTFs and penetration-test
 They should be useful for two audiences:
 
 - a technical reader or recruiter who wants to understand the compromise quickly;
-    
 - later revision, where the reasoning and important technical mechanisms must still be understandable and reproducible.
-    
 
 A write-up is not a terminal transcript and should not become a complete theoretical course.
 
@@ -31,24 +26,16 @@ Prefer the **shortest explanation that still makes the reasoning and technical m
 Each completed write-up should have:
 
 - an **English version**, which is the canonical version;
-    
 - a **French version**, translated from the final English version.
-    
 
 Both versions should contain the same:
 
 - structure;
-    
 - commands;
-    
 - technical evidence;
-    
 - attack path;
-    
 - redactions;
-    
 - level of detail.
-    
 
 Do not independently rewrite the French version.
 
@@ -56,22 +43,49 @@ Finalize and verify the English version first, then translate it.
 
 ---
 
+## File Naming and Titles
+
+Keep filenames and document titles concise.
+
+Use:
+
+```
+NN - Room - Main Focus.md
+```
+
+Example:
+
+```
+02 - Support - Web Exploitation.md
+```
+
+The H1 should follow the same principle:
+
+```
+# Support — Web Exploitation
+```
+
+Do not list every vulnerability or technique in the filename or H1.
+
+Detailed techniques belong in:
+
+- YAML metadata;
+- the optional `Attack path`;
+- the write-up itself.
+
+---
+
 ## General Rules
 
 - One continuous machine or scenario should normally produce one complete write-up per language.
-    
-- Existing Exegol `part_1` / `part_2` files should be merged when they describe the same compromise.
-    
+- Existing multi-part write-ups should be merged when they describe the same compromise.
 - Use exactly one H1 title.
-    
 - Adapt the sections to the real attack path.
-    
 - Do not force every machine into the same structure.
-    
+- Follow the attack chronologically.
 - Do not invent commands, outputs, credentials, discoveries or historical reasoning.
-    
 - Do not repeat the same information in several summary sections.
-    
+- Explain important reasoning once, where it matters.
 
 ---
 
@@ -88,19 +102,23 @@ platform: TryHackMe
 room: Support
 os: Linux
 environment: Web Application
-last_verified: 2026-09-27
+last_verified: YYYY-MM-DD
 
 techniques:
+  - brute-force
   - cookie-tampering
   - idor
+  - path-traversal
   - arbitrary-file-read
   - command-injection
+  - remote-code-execution
 
 tools:
   - nmap
   - gobuster
-  - hydra
   - curl
+  - burp-suite
+  - hydra
 ---
 ```
 
@@ -132,7 +150,7 @@ A typical full-machine write-up may look like:
 ```
 # Room / Machine — Main Focus
 
-Attack path: step → step → step → final access
+**Attack path:** step → step → step → final access
 
 ## 1. Reconnaissance
 
@@ -154,7 +172,7 @@ Keep it short.
 Example:
 
 ```
-Attack path: Helpdesk brute force → cookie tampering → IDOR → arbitrary file read → admin access → command injection → www-data
+Helpdesk brute force → cookie tampering → IDOR → arbitrary file read → admin access → command injection → www-data
 ```
 
 Do not add several sections that summarize the same attack.
@@ -200,7 +218,7 @@ Example:
 ```
 The API exposed numeric user IDs, so SQL injection was briefly tested.
 
-The malformed request returned no useful behavior, and adding an `admin=true`
+The malformed request returned no useful behavior, and adding an admin=true
 cookie also had no effect.
 
 Attention therefore returned to the dashboard functionality.
@@ -239,6 +257,58 @@ Explain options only when they matter to understanding or reproducing the techni
 Show only useful output.
 
 Avoid large scanner dumps, complete process listings or repetitive responses when a few lines prove the conclusion.
+
+---
+
+## Code Blocks
+
+Use a language identifier on fenced code blocks whenever possible.
+
+Use `bash` as the default for:
+
+- Linux shell commands;
+- terminal output;
+- paths;
+- raw values;
+- credentials or redacted credentials;
+- hashes;
+- service enumeration results;
+- generic CLI-oriented content.
+
+Use a more specific language when the content has a clear format, such as:
+
+```
+powershell
+json
+php
+http
+python
+html
+javascript
+sql
+yaml
+```
+
+For example:
+
+```
+{
+  "email": "help@support.thm",
+  "admin": false
+}
+```
+
+```
+$requested = realpath($webRoot . '/' . $skin . '.php');
+```
+
+```
+POST /dashboard.php HTTP/1.1
+
+sys=date +"%H:%M:%S"
+```
+
+Do not use `text` as the default when `bash` or a more precise language is appropriate.
 
 ---
 
@@ -373,11 +443,15 @@ Avoid simply repeating the attack path.
 Before publishing, verify:
 
 ```
+[ ] The filename and H1 are concise.
+
 [ ] The write-up follows the real attack chronologically.
 
 [ ] The explanation is concise but sufficient to understand the reasoning.
 
 [ ] Important commands have a clear purpose and interpreted result.
+
+[ ] Code blocks use bash by default or a more specific language when appropriate.
 
 [ ] Hypotheses are distinguished from confirmed facts.
 
