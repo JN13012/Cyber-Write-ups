@@ -49,19 +49,19 @@ Keep filenames and document titles concise.
 
 Use:
 
-```
+```bash
 NN - Room - Main Focus.md
 ```
 
 Example:
 
-```
+```bash
 02 - Support - Web Exploitation.md
 ```
 
 The H1 should follow the same principle:
 
-```
+```text
 # Support — Web Exploitation
 ```
 
@@ -95,7 +95,7 @@ Each write-up starts directly with YAML frontmatter.
 
 Example:
 
-```
+```bash
 ---
 type: writeup
 platform: TryHackMe
@@ -126,7 +126,7 @@ Keep metadata minimal and useful.
 
 Typical fields:
 
-```
+```bash
 type
 platform
 room
@@ -147,7 +147,7 @@ The structure is intentionally flexible.
 
 A typical full-machine write-up may look like:
 
-```
+```text
 # Room / Machine — Main Focus
 
 **Attack path:** step → step → step → final access
@@ -171,7 +171,7 @@ Keep it short.
 
 Example:
 
-```
+```bash
 Helpdesk brute force → cookie tampering → IDOR → arbitrary file read → admin access → command injection → www-data
 ```
 
@@ -179,7 +179,7 @@ Do not add several sections that summarize the same attack.
 
 Sections such as the following are optional and should only exist when they genuinely improve the write-up:
 
-```
+```bash
 TL;DR
 Objective / Starting Context
 Key Findings
@@ -198,7 +198,7 @@ Important reasoning should appear where it happened.
 
 Use this mental model:
 
-```
+```bash
 Observation
 → Hypothesis
 → Minimal Test
@@ -215,7 +215,7 @@ Useful failures and false leads should normally remain **inside the chronologica
 
 Example:
 
-```
+```bash
 The API exposed numeric user IDs, so SQL injection was briefly tested.
 
 The malformed request returned no useful behavior, and adding an admin=true
@@ -232,7 +232,7 @@ Do not move failures to a separate end section if doing so breaks the attack flo
 
 Important commands should answer three questions:
 
-```
+```bash
 Why was this tested?
 What important result was obtained?
 What changed because of that result?
@@ -240,7 +240,7 @@ What changed because of that result?
 
 Do not explain basic commands such as:
 
-```
+```bash
 ls
 cd
 cat
@@ -277,7 +277,7 @@ Use `bash` as the default for:
 
 Use a more specific language when the content has a clear format, such as:
 
-```
+```bash
 powershell
 json
 php
@@ -291,18 +291,18 @@ yaml
 
 For example:
 
-```
+```json
 {
   "email": "help@support.thm",
   "admin": false
 }
 ```
 
-```
+```php
 $requested = realpath($webRoot . '/' . $skin . '.php');
 ```
 
-```
+```http
 POST /dashboard.php HTTP/1.1
 
 sys=date +"%H:%M:%S"
@@ -334,7 +334,7 @@ A useful rule is:
 
 Distinguish clearly between:
 
-```
+```bash
 observed evidence
 hypothesis
 test
@@ -347,7 +347,7 @@ Use vulnerability terminology that matches the mechanism actually observed.
 
 Examples of distinctions that matter:
 
-```
+```bash
 authentication vs authorization
 path traversal vs arbitrary file read
 file read vs file inclusion
@@ -357,7 +357,7 @@ writable file vs exploitable privileged execution path
 
 For privilege escalation, explain both:
 
-```
+```bash
 What can the current user control?
 Who executes or trusts it with greater privileges?
 ```
@@ -380,7 +380,7 @@ Do not present reconstructed commands as commands that were definitely executed 
 
 Important artifacts used later should be introduced before use, such as:
 
-```
+```bash
 cookies
 wordlists
 hash files
@@ -398,14 +398,14 @@ Public write-ups should demonstrate methodology without unnecessarily publishing
 
 Redact flags:
 
-```
+```bash
 THM{REDACTED}
 EPI{REDACTED}
 ```
 
 Redact reusable secrets when appropriate:
 
-```
+```bash
 Password: <REDACTED>
 JWT secret: <REDACTED>
 ```
@@ -414,7 +414,7 @@ Do not publish private keys, tokens, session cookies or similar reusable secrets
 
 Temporary lab IP addresses should normally use:
 
-```
+```bash
 <TARGET_IP>
 <ATTACKER_IP>
 <DC_IP>
@@ -442,7 +442,7 @@ Avoid simply repeating the attack path.
 
 Before publishing, verify:
 
-```
+```bash
 [ ] The filename and H1 are concise.
 
 [ ] The write-up follows the real attack chronologically.
