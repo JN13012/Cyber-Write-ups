@@ -1,784 +1,348 @@
 ---
 category: writeup
-platform: THM
+platform: THM + Exegol
 last_verified: 2026-09-25
 ---
-## 1. Purpose
+# Cyber Write-up Writing Standard
 
-This document defines the standard used for penetration-testing and CTF write-ups in this repository.
+## Purpose
 
-A write-up must serve three purposes:
+Write-ups in this repository document authorized labs, CTFs and penetration-testing exercises.
 
-1. **Reproducibility** — the attack path should be reproducible from the documented steps.
+They should be useful for two audiences:
+
+- a technical reader or recruiter who wants to understand the compromise quickly;
     
-2. **Learning and revision** — the techniques should be explained well enough to recognize and reuse them in another lab or engagement.
-    
-3. **Professional presentation** — the document should demonstrate technical reasoning and methodology to another technical reader or recruiter.
+- later revision, where the reasoning and important technical mechanisms must still be understandable and reproducible.
     
 
-A write-up should therefore be more than a list of commands, but it should not become a transcript of everything performed during the lab.
+A write-up is not a terminal transcript and should not become a complete theoretical course.
 
-The expected reasoning model is:
+The objective is simple:
 
-```
-Observation
-    ↓
-Hypothesis
-    ↓
-Minimal test
-    ↓
-Result
-    ↓
-Interpretation
-    ↓
-Next decision
-```
+> Explain what happened, why each important decision was made, what the evidence means, and how the attack progressed.
 
-These steps do not need to appear as explicit headings every time. They should be visible naturally in the explanation.
+Prefer the **shortest explanation that still makes the reasoning and technical mechanism clear**.
 
 ---
 
-# 2. File Naming
+## Language
 
-## Standard
+Each completed write-up should have:
 
-Use:
-
-```
-NN - Room - Main Focus - Main Technique 1 - Main Technique 2 [- Main Technique 3].md
-```
-
-The filename should identify:
-
-- the sequence number;
+- an **English version**, which is the canonical version;
     
-- the room or machine;
-    
-- the main technical focus;
-    
-- the most important techniques, vulnerabilities or exploitation mechanisms.
+- a **French version**, translated from the final English version.
     
 
-Examples:
+Both versions should contain the same:
 
-```
-01 - Recruit - Web Exploitation - Brute Force - Arbitrary File Read - SQL Injection.md
+- structure;
+    
+- commands;
+    
+- technical evidence;
+    
+- attack path;
+    
+- redactions;
+    
+- level of detail.
+    
 
-05 - Jump - Linux Privilege Escalation - Writable Script - PATH Hijacking - Sudo Abuse.md
+Do not independently rewrite the French version.
 
-06 - Jump - Windows Privilege Escalation - Credential Disclosure - Service Hijacking - Scheduled Task.md
-
-07 - Proxy - Active Directory - NTLM Capture - Constrained Delegation - S4U.md
-
-08 - Forward - Active Directory - Password Reuse - RBCD - S4U.md
-
-09 - Domino - Web & Linux - IDOR - JWT Forgery - RCE - Cron PrivEsc.md
-```
-
-## Main Focus
-
-Useful focus categories include:
-
-```
-Web Exploitation
-Password Attacks
-Linux Privilege Escalation
-Windows Privilege Escalation
-Active Directory
-Web & Linux
-```
-
-The focus is useful because it immediately indicates the environment or type of skills exercised in the room.
-
-## Tools vs techniques
-
-Tool names should **normally not appear in filenames**.
-
-Prefer:
-
-```
-Brute Force
-```
-
-instead of:
-
-```
-Hydra
-```
-
-Prefer:
-
-```
-Hash Cracking
-```
-
-instead of:
-
-```
-Hashcat
-```
-
-Prefer:
-
-```
-NTLM Capture
-```
-
-instead of:
-
-```
-Responder
-```
-
-Tools belong in the YAML metadata.
-
-An exception is acceptable when the tool itself is the subject of the exercise, for example:
-
-```
-Metasploit Payload Generation
-```
-
-Do not try to list every technique used during the room. Keep only the concepts that best identify the attack path.
+Finalize and verify the English version first, then translate it.
 
 ---
 
-# 3. YAML Frontmatter
+## General Rules
 
-Every write-up should start with YAML frontmatter.
+- One continuous machine or scenario should normally produce one complete write-up per language.
+    
+- Existing Exegol `part_1` / `part_2` files should be merged when they describe the same compromise.
+    
+- Use exactly one H1 title.
+    
+- Adapt the sections to the real attack path.
+    
+- Do not force every machine into the same structure.
+    
+- Do not invent commands, outputs, credentials, discoveries or historical reasoning.
+    
+- Do not repeat the same information in several summary sections.
+    
 
-Recommended structure:
+---
+
+## Metadata
+
+Each write-up starts directly with YAML frontmatter.
+
+Example:
 
 ```
 ---
 type: writeup
 platform: TryHackMe
-room: Forward
-os: Windows
-environment: Active Directory
-status: completed
-last_verified: 2026-09-25
+room: Support
+os: Linux
+environment: Web Application
+last_verified: 2026-09-27
 
 techniques:
-  - password-reuse
-  - rbcd
-  - kerberos-delegation
-  - privilege-escalation
+  - cookie-tampering
+  - idor
+  - arbitrary-file-read
+  - command-injection
 
 tools:
   - nmap
-  - netexec
-  - impacket
-  - hashcat
-  - xfreerdp
----
-```
-
-## Recommended fields
-
-```
-type:
-platform:
-room:
-status:
-last_verified:
-techniques:
-tools:
-```
-
-Use when relevant:
-
-```
-os:
-environment:
-difficulty:
-```
-
-Do not invent information such as a difficulty if it is unknown.
-
-### `techniques`
-
-Contains vulnerabilities, attack techniques or exploitation mechanisms:
-
-```
-techniques:
-  - idor
-  - jwt-forgery
-  - credential-reuse
-  - path-hijacking
-  - rbcd
-```
-
-### `tools`
-
-Contains the software used:
-
-```
-tools:
+  - gobuster
   - hydra
-  - hashcat
-  - responder
-  - impacket
-  - pspy
+  - curl
+---
 ```
 
-This separation prevents tools and techniques from being mixed in the filename.
+Keep metadata minimal and useful.
+
+Typical fields:
+
+```
+type
+platform
+room
+os
+environment
+last_verified
+techniques
+tools
+```
+
+Do not add metadata unless it provides a real classification or retrieval benefit.
 
 ---
 
-# 4. Write-up Structure
+## Structure
 
-A complete machine should generally follow this structure:
+The structure is intentionally flexible.
+
+A typical full-machine write-up may look like:
 
 ```
-YAML frontmatter
+# Room / Machine — Main Focus
 
-# Title
+Attack path: step → step → step → final access
 
-## TL;DR
-## Objective / Initial Context
+## 1. Reconnaissance
 
-# 1. Reconnaissance
-# 2. Enumeration
-# 3. Initial Access
-# 4. Lateral Movement / Post-Exploitation
-# 5. Privilege Escalation
-# 6. Final Objective
+## 2. Initial Access
 
-## Attack Chain
-## Key Findings
-## False Leads / Useful Failures
+## 3. <Attack Phase>
+
+## 4. Privilege Escalation
+
 ## Key Takeaways
+
 ## Cleanup
 ```
 
-This is a guideline, not a rigid template.
+The `Attack path` line is optional, but useful for longer or multi-stage machines.
 
-The actual sections should follow the attack path of the machine.
+Keep it short.
 
-Do not create empty sections simply to respect the structure.
-
-## TL;DR
-
-A `TL;DR` is recommended for full-machine or multi-stage write-ups.
-
-It should summarize the compromise path in a few lines:
+Example:
 
 ```
-Initial credentials
-    ↓
-Credential exposure
-    ↓
-Password reuse
-    ↓
-Dangerous AD ACL
-    ↓
-RBCD
-    ↓
-Kerberos impersonation
-    ↓
-SYSTEM
+Attack path: Helpdesk brute force → cookie tampering → IDOR → arbitrary file read → admin access → command injection → www-data
 ```
 
-For focused exercises such as a single password-attack lab or a Metasploit exercise, the TL;DR is optional.
+Do not add several sections that summarize the same attack.
 
-## Objective / Initial Context
+Sections such as the following are optional and should only exist when they genuinely improve the write-up:
 
-Clearly state:
+```
+TL;DR
+Objective / Starting Context
+Key Findings
+Cleanup
+```
 
-- the starting position;
-    
-- any credentials supplied by the scenario;
-    
-- the target environment;
-    
-- the final objective.
-    
-
-This prevents scenario-provided information from being confused with information discovered during exploitation.
+For example, `Starting Context` is useful for an assumed-breach Active Directory lab with provided credentials, but unnecessary for a simple machine starting without credentials.
 
 ---
 
-# 5. Writing Rules
+## Follow the Attack Chronologically
 
-## Explain why, not only what
+The write-up should follow the order in which the attack was understood and developed.
 
-Important commands should have a reason for being executed.
+Important reasoning should appear where it happened.
 
-Weak:
-
-```
-getcap -r / 2>/dev/null
-```
-
-Better:
-
-> `sudo -l` did not reveal a usable privilege-escalation path, so Linux capabilities were enumerated next. Capabilities can grant privileged operations to binaries without requiring the SUID bit.
+Use this mental model:
 
 ```
-getcap -r / 2>/dev/null
+Observation
+→ Hypothesis
+→ Minimal Test
+→ Result
+→ Interpretation
+→ Next Decision
 ```
 
-The reader should understand both:
+These are not mandatory headings.
+
+They should appear naturally in the explanation.
+
+Useful failures and false leads should normally remain **inside the chronological narrative**.
+
+Example:
 
 ```
-what was tested
+The API exposed numeric user IDs, so SQL injection was briefly tested.
+
+The malformed request returned no useful behavior, and adding an `admin=true`
+cookie also had no effect.
+
+Attention therefore returned to the dashboard functionality.
 ```
 
-and:
+Do not move failures to a separate end section if doing so breaks the attack flow.
+
+---
+
+## Explain Clearly, but Stay Direct
+
+Important commands should answer three questions:
 
 ```
-why it was tested at that point
+Why was this tested?
+What important result was obtained?
+What changed because of that result?
 ```
 
-## Do not over-explain basic commands
-
-Commands such as:
+Do not explain basic commands such as:
 
 ```
 ls
 cd
 cat
 pwd
+whoami
 ```
 
-do not normally require detailed explanations.
+unless their use is technically important.
 
-Explain an option when it materially affects the technique or teaches something reusable.
+Do not explain every command-line option.
 
-Example:
+Explain options only when they matter to understanding or reproducing the technique.
 
-```
--m 5600
-→ Hashcat mode for NetNTLMv2
-```
+Show only useful output.
 
-or:
-
-```
--k
-→ use Kerberos authentication
-
--no-pass
-→ use the existing Kerberos ticket instead of requesting a password
-```
-
-## Distinguish hypotheses from facts
-
-Never present an assumption as a confirmed finding.
-
-Example:
-
-```
-DB_PASS = <REDACTED>
-system_user = devops
-```
-
-Correct reasoning:
-
-> The naming of the database password suggests possible credential reuse with the Linux account `devops`. This is only a hypothesis at this stage.
-
-Test:
-
-```
-ssh devops@<TARGET_IP>
-```
-
-Only after successful authentication:
-
-> Credential reuse is confirmed.
-
-Use the mental model:
-
-```
-Observation
-→ Hypothesis
-→ Test
-→ Confirmation / Rejection
-```
-
-## Prefer minimal validation tests
-
-Use the smallest test that proves the hypothesis.
-
-For command injection:
-
-```
-date;id
-```
-
-is better as an initial proof than immediately deploying a reverse shell.
-
-For RCE:
-
-```
-id
-```
-
-immediately identifies the execution context.
-
-Minimal tests:
-
-- reduce unnecessary target modification;
-    
-- make the reasoning clearer;
-    
-- separate validation from exploitation.
-    
-
-## Interpret important results
-
-Do not leave important output unexplained.
-
-Example:
-
-```
--rwxrwxr-- root devops health_report.sh
-```
-
-Interpretation:
-
-> The script belongs to `root`, but members of the `devops` group can modify it. This is only exploitable if a more privileged context later executes the script.
-
-The important question is not only:
-
-```
-Can I modify this?
-```
-
-but also:
-
-```
-Who executes or trusts it?
-```
-
-## Keep useful output only
-
-Do not paste hundreds of lines of scanner or process output.
-
-Keep the evidence supporting the conclusion.
-
-Example:
-
-```
-UID=0 CMD=/bin/sh -c /opt/monitoring/health_report.sh
-UID=0 CMD=/bin/bash /opt/monitoring/health_report.sh
-```
-
-Then explain:
-
-> `UID=0` confirms that the script is executed as `root`.
-
-Keep detailed raw output when necessary for understanding:
-
-- ACL entries;
-    
-- sudo rules;
-    
-- service permissions;
-    
-- Kerberos delegation attributes;
-    
-- authentication response differences;
-    
-- important token or hash structure.
-    
-
-## Keep useful failures
-
-Failed attempts should remain when they teach something or influence the next decision.
-
-Good examples:
-
-```
-Hydra returned a false positive because the failure matcher was incomplete.
-
-Kerberoasting produced a valid hash, but RockYou was exhausted without recovering the password.
-
-JWT secret cracking failed, which led to testing the server-side validation logic.
-
-A suspected blind XSS callback was later shown to be a simple HTTP fetch rather than JavaScript execution.
-```
-
-Do not preserve every unsuccessful command.
-
-The goal is to document **useful reasoning**, not terminal history.
-
-## Explain concepts without breaking the narrative
-
-Definitions are useful for revision, especially for Active Directory, Kerberos, Windows internals and privilege escalation.
-
-When possible, use Obsidian callouts:
-
-```
-> [!info] RootDSE
-> The RootDSE is the special LDAP entry at the root of the directory.
-> It exposes information such as naming contexts and server capabilities.
-```
-
-This separates:
-
-```
-what happened
-```
-
-from:
-
-```
-why the underlying mechanism works
-```
+Avoid large scanner dumps, complete process listings or repetitive responses when a few lines prove the conclusion.
 
 ---
 
-# 6. Technical Accuracy & Reproducibility
+## Technical Explanation
 
-A write-up should be technically precise enough to reproduce the attack without relying on the original terminal history.
+Explain the mechanism that matters to the current attack.
 
-## Reproducibility
+Example:
 
-Every variable, file or artifact required later must be introduced first.
+> The application normalizes the requested path with `realpath()`, but the following boundary check still allows traversal outside `skins`. Because the file is returned with `readfile()` rather than included as PHP code, the resulting primitive is **Arbitrary File Read**, not classic LFI.
 
-Bad:
+This is preferable to several paragraphs explaining `realpath()`, path traversal and PHP inclusion in general.
+
+The write-up should remain centered on the machine.
+
+A useful rule is:
+
+> Explain enough theory to understand this attack, but no more than necessary.
+
+---
+
+## Accuracy and Evidence
+
+Distinguish clearly between:
 
 ```
-curl -H "Authorization: Bearer $ADMIN_TOKEN" ...
+observed evidence
+hypothesis
+test
+confirmed result
 ```
 
-if `$ADMIN_TOKEN` was never created.
+Do not present an assumption as a fact.
 
-The same rule applies to:
+Use vulnerability terminology that matches the mechanism actually observed.
+
+Examples of distinctions that matter:
 
 ```
-cookies.txt
-hash.txt
+authentication vs authorization
+path traversal vs arbitrary file read
+file read vs file inclusion
+credential discovery vs confirmed credential reuse
+writable file vs exploitable privileged execution path
+```
+
+For privilege escalation, explain both:
+
+```
+What can the current user control?
+Who executes or trusts it with greater privileges?
+```
+
+When moving to another identity or privilege level, make the transition clear and verify it.
+
+---
+
+## Historical Integrity
+
+Never invent missing lab history.
+
+If the exact historical command was not preserved, say so.
+
+A reproducible equivalent may be provided:
+
+> The exact historical enumeration command was not preserved. The following command reproduces the same discovery approach.
+
+Do not present reconstructed commands as commands that were definitely executed during the original lab.
+
+Important artifacts used later should be introduced before use, such as:
+
+```
+cookies
 wordlists
-payload files
-ccache files
-KRB5CCNAME
-machine accounts
+hash files
+payloads
+Kerberos ticket caches
 SSH keys
+machine accounts
 ```
-
-A reader should not need to guess how an artifact appeared.
-
-## Use accurate vulnerability names
-
-Describe the observed mechanism, not only the label used by the room.
-
-For example:
-
-```
-file_get_contents($path);
-```
-
-is generally better described as:
-
-```
-Arbitrary File Read
-```
-
-than classic LFI if no PHP inclusion occurs.
-
-By contrast:
-
-```
-include($path);
-```
-
-may correspond to Local File Inclusion.
-
-Likewise:
-
-```
-file_get_contents($url);
-eval($content);
-```
-
-can result in remote code execution because attacker-controlled remote content is evaluated.
-
-When the lab terminology differs from the actual implementation, mention both and explain the distinction.
-
-## Authentication vs authorization
-
-For access-control vulnerabilities, distinguish the two explicitly.
-
-Example:
-
-```
-Robert is authenticated.
-
-Changing:
-
-id=4
-
-to:
-
-id=1
-
-returns another user's profile.
-```
-
-The problem is therefore not authentication.
-
-The missing control is:
-
-```
-Is Robert authorized to access object 1?
-```
-
-This confirms IDOR/BOLA.
-
-## Privilege escalation
-
-Focus on the trust boundary rather than memorizing the payload.
-
-Generic model:
-
-```
-Low-privileged user controls X
-        +
-Privileged identity executes or trusts X
-        ↓
-Privilege Escalation
-```
-
-Examples:
-
-```
-Writable script
-+
-root cron execution
-```
-
-```
-Writable service executable
-+
-service running as another user
-```
-
-```
-Writable directory earlier in PATH
-+
-privileged process calls a command without an absolute path
-```
-
-## Identity transitions
-
-Whenever the attack moves to a new account or privilege level, document:
-
-```
-Current identity
-→ discovered credential / trust
-→ validation
-→ new identity
-```
-
-Verify the new context:
-
-Linux:
-
-```
-whoami
-id
-```
-
-Windows:
-
-```
-whoami
-whoami /groups
-```
-
-Active Directory write-ups should also explain:
-
-- who requests a ticket;
-    
-- which user is impersonated;
-    
-- which SPN is targeted;
-    
-- why delegation permits it;
-    
-- which ticket is produced;
-    
-- how that ticket is later used.
-    
 
 ---
 
-# 7. Redaction & Publication
+## Redaction
 
-The public repository should demonstrate methodology, not publish answers or reusable secrets.
+Public write-ups should demonstrate methodology without unnecessarily publishing challenge answers or reusable secrets.
 
-## Flags
-
-Do not publish real flags.
-
-Use:
+Redact flags:
 
 ```
 THM{REDACTED}
-```
-
-or:
-
-```
 EPI{REDACTED}
 ```
 
-Keep:
-
-- the file location;
-    
-- the command used to retrieve it;
-    
-- the privilege level required.
-    
-
-Example:
+Redact reusable secrets when appropriate:
 
 ```
-cat /root/root.txt
-```
-
-Result:
-
-```
-THM{REDACTED}
-```
-
-## Credentials and secrets
-
-Discovered credentials should normally be redacted:
-
-```
-Username: devops
 Password: <REDACTED>
+JWT secret: <REDACTED>
 ```
 
-Do not publish:
+Do not publish private keys, tokens, session cookies or similar reusable secrets.
 
-- private keys;
-    
-- API tokens;
-    
-- session cookies;
-    
-- JWT signing secrets;
-    
-- reusable access tokens;
-    
-- customer or real-environment information.
-    
-
-If part of a secret is important to the reasoning, describe only the relevant characteristic.
-
-Example:
-
-> The database password contained the string `D3v0ps`, which suggested possible reuse with the `devops` Linux account.
-
-## IP addresses
-
-Temporary lab IP addresses should normally be replaced by:
+Temporary lab IP addresses should normally use:
 
 ```
 <TARGET_IP>
@@ -786,81 +350,52 @@ Temporary lab IP addresses should normally be replaced by:
 <DC_IP>
 ```
 
-This keeps the write-up reusable after the machine is restarted.
-
-## Screenshots
-
-Use screenshots only when they add information that is difficult to reproduce as text, for example:
-
-- graphical application behavior;
-    
-- KeePass configuration;
-    
-- RDP-only discoveries;
-    
-- unusual UI behavior.
-    
-
-Prefer text for:
-
-- terminal commands;
-    
-- scanner output;
-    
-- flags;
-    
-- simple configuration files.
-    
-
-Sanitize screenshots before publication.
+Stable hostnames or domain names may remain when technically relevant.
 
 ---
 
-# 8. Final Checklist
+## Key Takeaways
 
-Before considering a write-up complete:
+End with a few reusable lessons when the machine provides useful ones.
 
-```
-[ ] The filename identifies the room, main focus and key techniques
+Keep them short and technical.
 
-[ ] Tools and techniques are separated correctly
+Good:
 
-[ ] YAML frontmatter is complete
+> A writable file becomes a privilege-escalation primitive only when a more privileged context executes or trusts it.
 
-[ ] A TL;DR is present for a full-machine or multi-stage lab
+Avoid simply repeating the attack path.
 
-[ ] The starting context and objective are clear
+---
 
-[ ] Important commands explain why they were used
+## Final Check
 
-[ ] Hypotheses are distinguished from confirmed facts
-
-[ ] Important results are interpreted
-
-[ ] Required variables, files and artifacts are introduced before use
-
-[ ] Vulnerabilities are classified according to the actual mechanism
-
-[ ] Useful false leads and failed attempts are preserved
-
-[ ] Identity / privilege transitions are clearly demonstrated
-
-[ ] The full attack path can be reproduced from the write-up
-
-[ ] Real flags, credentials and sensitive material are redacted
-
-[ ] Cleanup is documented when the target was modified
-
-[ ] Markdown renders correctly and code fences are closed
-
-[ ] The final Key Takeaways contain reusable lessons, not only a summary
-```
-
-The final test is:
+Before publishing, verify:
 
 ```
-Could I reproduce and explain this attack several months later
-using only this document?
+[ ] The write-up follows the real attack chronologically.
+
+[ ] The explanation is concise but sufficient to understand the reasoning.
+
+[ ] Important commands have a clear purpose and interpreted result.
+
+[ ] Hypotheses are distinguished from confirmed facts.
+
+[ ] Useful failures appear where they influenced the attack.
+
+[ ] Technical terminology matches the observed mechanism.
+
+[ ] No historical command or result was invented.
+
+[ ] Repeated summaries and unnecessary theory were removed.
+
+[ ] Flags and sensitive secrets are redacted.
+
+[ ] The English and French versions contain the same technical content.
+
+[ ] The document remains useful for both quick reading and later revision.
 ```
 
-If the answer is no, the write-up is not finished.
+The final writing principle is:
+
+> **Be direct, but not superficial. Explain the reasoning once, at the point where it matters.**
