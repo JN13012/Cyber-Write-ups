@@ -26,7 +26,6 @@ Prefer the **shortest explanation that still makes the reasoning and technical m
 Each completed write-up should have:
 
 - an **English version**, which is the canonical version;
-- a **French version**, translated from the final English version.
 
 Both versions should contain the same:
 
@@ -37,7 +36,6 @@ Both versions should contain the same:
 - redactions;
 - level of detail.
 
-Do not independently rewrite the French version.
 
 Finalize and verify the English version first, then translate it.
 
@@ -464,8 +462,6 @@ Before publishing, verify:
 [ ] Repeated summaries and unnecessary theory were removed.
 
 [ ] Flags and sensitive secrets are redacted.
-
-[ ] The English and French versions contain the same technical content.
 
 [ ] The document remains useful for both quick reading and later revision.
 ```
